@@ -1,7 +1,22 @@
+--Concept Covered
+/*1.Basics of SQL (select, where, AND & OR,IN,Between, order by, group by, having, limit, like, AS(alias))
+2.Aggregate Functions(sum(),avg(),min(),max(),count())
+3.String Functions(upper(),lower(),length(),right(),left(),position(),substring())
+4.Interval&timestamps(Date(),Extract(), To_Char())
+5.Conditional expressions(CASE When, Coalesce,cast,replace)
+5.Joins(inner join, left join, right join, outer join
+7.Union & subquery(standard, corelated subquery)
+8.Managing Database and Tables(DDL,DML,TCL,DCL and their)
+9.Views
+10.Windows Functions(rank(),over()with order by, over with partition, lead(),lag() )
+11.Grouping sets, rollup, cube, self join
+12.Stored procedure,transactions & User Defined Function
+*/
 /*
 The Marketing Manager asks you for a list of all customers.
 With first name, last name and the customer's email address. */
 select first_name, last_name, email from customer
+
 /*
 Write a SQL query to get the different prices!
 Result
@@ -326,7 +341,8 @@ from payment p1 order by customer_id, amount desc
 	
 /*Show only those films with the highest replacement costs in their rating
 category plus show the average replacement cost in their rating category*/
-select title, replacement_cost, rating, (select round(avg(replacement_cost),2) from film f3 where f1.rating= f3.rating ) from film f1 where replacement_cost in
+select title, replacement_cost, rating, (select round(avg(replacement_cost),2) 
+from film f3 where f1.rating= f3.rating ) from film f1 where replacement_cost in
 (select  max(replacement_cost) from film f2 where f1.rating=f2.rating)
 
 /*Show only those payments with the highest payment for each customer's first
@@ -341,17 +357,186 @@ select first_name, max(amount)
 from payment p1 join customer c on 
 c.customer_id =p1.customer_id group by first_name
 
+/*Create a table called songs with the following columns:
+song_id,song_name,genre, price, release_date
+1. During creation add the DEFAULT 'Not defined' to the genre.
+2. Add the not null constraint to the song_name column
+3. Add the constraint with default name to ensure the price is at least 1.99.
+4. Add the constraint date_check to ensure the release date is between today and
+01-01-1950.
+5. Try to insert a row like this:
+6. Modify the constraint to be able to have 0.99 allowed as the lowest possible price.
+7. Try again to insert the row.
+*/
+create table Songs_list( song_id int Primary key,song_name varchar(30) not null,genre varchar(30)
+default 'Not defined', price int check(price>=1.99),
+ release_date date check(release_date between '01-01-1950' and current_date ))
+
+
+insert into Songs_list values(1, 'Evaro', 'Not defined', 1.99, '01-02-1997')
+ALTER TABLE Songs_list
+ADD CONSTRAINT Price CHECK (price >= 0.99);
+insert into Songs_list values(2, 'varo', 'Not defined', 1.99, '01-02-1998')
+select * from Songs_list
+
+/*Update all rental prices that are 0.99 to 1.99.
+1. Add the column initials (data type varchar(10))
+2. Update the values to the actual initials for example Frank Smith should be F.S.*/
+update payment set amount=1.99 where amount=1.99
+select * from customer
+alter table customer add column initials varchar(10)
+update customer set initials = left(first_name,1) ||'.'|| left(last_name,1)||'.'
+/*
+Create a table called users with the following columns:
+user_id, first_name, last_name,user_name, signup_date, birt_date
+1. During creation add the DEFAULT current_date to the signup_date.
+2. Add the constraint namelength to ensure the user_name has more than 2 characters.
+3. Add the constraint with default name to ensure the birthdate is after 01-01-1900.
+4. After the creation rename namelength to name_length.
+5. Try to add Frank Smith with user name franksmith1 and birthday 02-12-1905.
+6. Modify the constraint on the birthdate so that no dates after 01-01-1910 are allowed.
+7. Try again to add Frank Smith with user name franksmith1 and birthday 02-12-1905.*/
+create table users(user_id int primary key, first_name varchar(20), last_name varchar(20)
+,user_name varchar(20) check  (length(user_name)>2), signup_date date 
+default current_date, birth_date date check (birth_date > '01-01-1900') )
+insert into users(user_id, first_name, last_name
+,user_name , birth_date) values(1, 'Frank', 'Smith', 'franksmith1', '02-12-1905')
+alter table users add constraint birth_date check (birth_date > '01-01-1910')
+
+
+/*Write a query that returns the list of movies including
+- film_id,
+- title,
+- length,
+- category,
+- average length of movies in that category.
+Order the results by film_id.*/
+select	f.film_id, title, length, name, avg(length) over( partition by name) from film f
+join film_category fc on f.film_id = fc.film_id join category c
+on c.category_id=fc.category_id order by f.film_id
+select * from category
+	
+/*Write a query that returns all payment details including
+- the number of payments that were made by this customer
+and that amount
+Order the results by payment_id*/
+select *, count(*) over(partition by amount, customer_id) as total_amount from payment order by payment_id
+	
+/*Write a query that returns the running total of how late the flights are
+(difference between actual_arrival and scheduled arrival) ordered by flight_id
+including the departure airport.
+As a second query, calculate the same running total but partition also by the
+departure airport.
+*/
+select flight_id, departure_airport,  sum(scheduled_arrival - actual_arrival) 
+over(order by flight_id) from flights 
+select flight_id, departure_airport,  sum(scheduled_arrival - actual_arrival) 
+over(partition by departure_airport order by flight_id) from flights 
+
+/*
+Write a query that returns the customers' name, the country and how many
+payments they have. For that use the existing view customer_list.
+Result
+Afterwards create a ranking of the top customers with most sales for each
+country. Filter the results to only the top 3 customers per country*/
+Select name, country, count(*) from customer_list
+Select  name, country, count(*),
+rank() over( partition by country order by count(*) desc) from customer_list c
+left join payment p on id= customer_id group by name, country
+select * from (Select  name, country, count(*), rank() over( partition by 
+country order by count(*) desc) from customer_list c
+left join payment p on id= customer_id group by name, country) a where rank in (1,2,3)
+
+/*
+Write a query that returns the revenue of the day and the revenue of the
+previous day.*/
+select sum(amount), date(payment_date), lag(sum(amount)) over(order by date(payment_date)) as Previous_day_revenue	from payment group by date(payment_date)
+
+--Afterwards calculate also the percentage growth compared to the previous day. 
+select sum(amount), date(payment_date), lag(sum(amount)) over(order by date(payment_date)) as Previous_day_revenue,
+sum(amount)-lag(sum(amount)) over(order by date(payment_date)) as Difference,	
+round(sum(amount)-lag(sum(amount)) over(order by date(payment_date))
+/ 
+lag(sum(amount)) over(order by date(payment_date))*100 ,2) from payment group by date(payment_date)
+
+
+/*Write a query that calculates a booking amount rollup for the hierarchy of
+quarter, month, week in month and day.*/
+select extract(Quarter from book_date) quarter, to_char(book_date, 'mm') month_,
+to_char(book_date, 'W') week, to_char(book_date, 'D') day_, sum(total_amount)
+from bookings group by rollup(extract(quarter from book_date), to_char(book_date, 'mm'), to_char(book_date, 'W'),to_char(book_date, 'D'))
+
+/* two employees Miller McQuarter and Christalle McKenny have agreed
+to swap their positions incl. their salary.*/
+Begin;
+update Employee_table set salary = 12587.00 where emp_id=2;
+update Employee_table set salary = 21268.94 where emp_id=3;
+update Employee_table set position_title = 'Head of Sales' where emp_id=2;
+update Employee_table set position_title = 'Head of BI' where emp_id=3;
+Commit; 
+
+
+/*Create a stored procedure called emp_swap that accepts two parameters
+emp1 and emp2 as input and swaps the two employees' position and salary.
+Test the stored procedure with emp_id 2 and 3.*/
+Create or replace procedure emp_swap (emp1 int,emp2 int)
+Language plpgsql
+AS
+$$
+Declare
+salary1 decimal(8,2);
+salary2 decimal(8,2);
+potition1 Text;
+potition2 Text;
+Begin
+-- store values in variable
+select salary into salary1 from Employee_table where emp_id = 1;
+select salary into salary2 from Employee_table where emp_id = 2;
+select position_title into potition1 from Employee_table where emp_id = 1;
+select position_title into potition2 from Employee_table where emp_id = 2;
+--update salary
+update Employee_table set salary = salary1 where emp_id=2;
+update Employee_table set salary = salary2 where emp_id=1;
+update Employee_table set position_title = potition1 where emp_id=2;
+update Employee_table set position_title = potition2 where emp_id=1;
+commit;
+end;
+$$
+call emp_swap(1,2)
+select * from Employee_table order by emp_id
 
 
 
+/*Create a function that expects the customer's first and last name
+and returns the total amount of payments this customer has made. ('AMY','LOPEZ')*/
+Create OR REPLACE function name_search(F_name varchar(20),L_name Varchar(20))
+Returns decimal(8,2)
+Language plpgsql
+as
+$$
+Declare
+total_amount decimal(8,2);
+Begin
+select sum(amount) into total_amount from 
+payment Natural left join customer where 
+first_name=F_name and last_name=L_name;
+RETURN total_amount;
+End;
+$$
+call 
+select name_search('AMY','LOPEZ')
 
+/*Write a query that calculates a booking amount rollup for the hierarchy of
+quarter, month, week in month and day.*/
+select extract(quarter from book_date) quarter,
+extract(month from book_date) as month_,
+To_char(book_date,'w') Week,
+date(book_date) Day_, sum(total_amount)
+from bookings group by rollup(quarter,month_,Week,Day_)
+select * from bookings
 
-
- 
-
-
-
-
-
+--Find all the pairs of films with the same length!
+select f1.title, f2.title, f2.length from film f1 left join film f2
+on f1.length=f2.length where f1.title<>f2.title order by f2.length desc
 
 
